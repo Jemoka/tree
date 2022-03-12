@@ -1,20 +1,5 @@
+use std::sync::Arc;
 use std::cmp::max;
-
-//// Basics ////
-
-// Tree rotation trait
-trait Rotateable:Sized {
-    fn rotate_left(self) -> Result<Self, ()>;
-    fn rotate_right(self) -> Result<Self, ()>;
-}
-
-// Tree operation trait
-trait Tree<T> {
-    fn get_nth(&self, nth:u32) -> T;
-    fn insert(&mut self); 
-    fn delete(&mut self); 
-}
-
 
 //// AVL Tree ////
 
@@ -23,12 +8,21 @@ trait Tree<T> {
 struct AVLTree<T:Clone> {
     left: Box<Option<AVLTree<T>>>,
     right: Box<Option<AVLTree<T>>>,
+    parent: Arc<Self>,
     height: u32,
     value: T
 }
 
-// Implement Rotation
-impl <T:Clone> Rotateable for AVLTree<T> {
+// Implement insertion, etc. 
+// impl <T:Clone> SelfBalancingTree<T> for AVLTree<T> {
+//     fn get_nth(&self, nth:u32) -> T {
+
+//     }
+// }
+
+impl<T:Clone> AVLTree<T> {
+
+    // Left rotation
     fn rotate_left(self) -> Result<Self, ()> {
         match *self.right {
             // If it does not exist, return.
@@ -54,6 +48,7 @@ impl <T:Clone> Rotateable for AVLTree<T> {
                     AVLTree { left: self.left,
                               right: parent.left,
                               height: child_height,
+                              parent: Arc::new(&parent),
                               value: self.value }
                 ));
 
@@ -72,6 +67,7 @@ impl <T:Clone> Rotateable for AVLTree<T> {
         }
     }
 
+    // Right rotation
     fn rotate_right(self) -> Result<Self, ()> {
         match *self.left {
             // If it does not exist, return.
@@ -97,6 +93,7 @@ impl <T:Clone> Rotateable for AVLTree<T> {
                     AVLTree { left: parent.right,
                               right: self.right,
                               height: child_height,
+                              parent: Arc::new(parent),
                               value: self.value }
                 ));
 
