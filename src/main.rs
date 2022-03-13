@@ -1,16 +1,23 @@
-use std::sync::Arc;
 use std::cmp::max;
 
 //// AVL Tree ////
-
 // Generic Representation of an AVL tree node
-#[derive(Clone)]
-struct AVLTree<T:Clone> {
-    left: Box<Option<AVLTree<T>>>,
-    right: Box<Option<AVLTree<T>>>,
-    parent: Arc<Self>,
+
+pub struct AVLTree<'a, T:Clone> {
+    arena: Vec<AVLTreeNode<'a, T>>
+}
+
+pub struct AVLTreeNode<'a, T:Clone> {
+    pub left: Option<usize>,
+    pub right: Option<usize>,
+    parent: Option<usize>,
+
+    index: usize,
+
     height: u32,
-    value: T
+    pub value: T,
+
+    container: &'a mut AVLTree<'a, T>
 }
 
 // Implement insertion, etc. 
@@ -20,95 +27,130 @@ struct AVLTree<T:Clone> {
 //     }
 // }
 
-impl<T:Clone> AVLTree<T> {
+impl<'a, T:Clone> AVLTreeNode<'a, T> {
 
     // Left rotation
-    fn rotate_left(self) -> Result<Self, ()> {
-        match *self.right {
+    pub fn rotate_left(&mut self) {
+        // create a borrow who has a nonmutable view of the
+        // arena inside. This is to appease the borrow checker
+        // and race-condition-de-possibleifier of Rust
+        let arena = &mut self.container.arena;
+
+        match self.right {
             // If it does not exist, return.
             // we can't actually rotate
-            None => {return Err(())},
+            None => {return ()},
 
             // If it does, we rotate
-            Some(mut parent) => {
+            Some(parent_index) => {
+                // Get the parent node
+                let parent = &arena[parent_index];
+
                 // Get the new heights of both left and right objects
-                let child_right_height = match &*parent.left {
-                    Some(pl) => pl.height,
+                let child_right_height = match parent.left {
+                    Some(pl) => (&arena[pl]).height,
                     None => 0
                 };
-                let child_left_height = match &*self.left {
-                    Some(pl) => pl.height,
+                let child_left_height = match self.left {
+                    Some(pl) => (&arena[pl]).height,
                     None => 0
                 };
-                // Get the child's height
+                // Get the child's height and parent
                 let child_height = max(child_left_height, child_right_height);
-                
-                // set a copy of the right node as parent
-                parent.left = Box::new(Some(
-                    AVLTree { left: self.left,
-                              right: parent.left,
-                              height: child_height,
-                              parent: Arc::new(&parent),
-                              value: self.value }
-                ));
+                let old_parent_index = self.parent;
+
+                // slide the left element of new parent to the right of self
+                self.right = parent.left;
+
+                // update the height
+                self.height = child_height;
+
+                // update the parent ID of current node
+                self.parent = Some(parent.index);
 
                 // Get the height of the right child of parent
-                let parent_right_height = match &*parent.right {
-                    Some(pl) => pl.height,
+                let parent_right_height = match parent.right {
+                    Some(pl) => arena[pl].height,
                     None => 0
                 };
 
+                // We finally set all the values. We need to explicitly
+                // index here because the previous parent borrow is
+                // immutable
+
+                // set the left node of the parent to be self
+                arena[parent_index].left  = Some(self.index);
+
                 // set the parent's new height
-                parent.height = max(child_height, parent_right_height);
-                
-                // return new parent
-                return Ok(parent);
+                arena[parent_index].height = max(child_height, parent_right_height);
+
+                // set the parent's parent
+                arena[parent_index].parent = old_parent_index;
             }
         }
+
     }
 
     // Right rotation
-    fn rotate_right(self) -> Result<Self, ()> {
-        match *self.left {
+    pub fn rotate_right(&mut self) {
+        // create a borrow who has a nonmutable view of the
+        // arena inside. This is to appease the borrow checker
+        // and race-condition-de-possibleifier of Rust
+        let arena = &mut self.container.arena;
+
+        match self.left {
             // If it does not exist, return.
             // we can't actually rotate
-            None => {return Err(())},
+            None => {return ()},
 
             // If it does, we rotate
-            Some(mut parent) => {
+            Some(parent_index) => {
+                // Get the parent node
+                let parent = &arena[parent_index];
+
                 // Get the new heights of both left and right objects
-                let child_right_height = match &*parent.right {
-                    Some(pl) => pl.height,
+                let child_right_height = match parent.right {
+                    Some(pl) => (&arena[pl]).height,
                     None => 0
                 };
-                let child_left_height = match &*self.right {
-                    Some(pl) => pl.height,
+                let child_left_height = match self.right {
+                    Some(pl) => (&arena[pl]).height,
                     None => 0
                 };
-                // Get the child's height
+                // Get the child's height and parent
                 let child_height = max(child_left_height, child_right_height);
+                let old_parent_index = self.parent;
 
-                // set as the parent
-                parent.right = Box::new(Some(
-                    AVLTree { left: parent.right,
-                              right: self.right,
-                              height: child_height,
-                              parent: Arc::new(parent),
-                              value: self.value }
-                ));
+                // slide the left element of new parent to the right of self
+                self.left = parent.right;
 
-                // Get the height of the left child of parent
-                let parent_left_height = match &*parent.left {
-                    Some(pl) => pl.height,
+                // update the height
+                self.height = child_height;
+
+                // update the parent ID of current node
+                self.parent = Some(parent.index);
+
+                // Get the height of the right child of parent
+                let parent_left_height = match parent.left {
+                    Some(pl) => arena[pl].height,
                     None => 0
                 };
+
+                // We finally set all the values. We need to explicitly
+                // index here because the previous parent borrow is
+                // immutable
+
+                // set the left node of the parent to be self
+                arena[parent_index].right = Some(self.index);
 
                 // set the parent's new height
-                parent.height = max(child_height, parent_left_height);
-                
-                return Ok(parent);
+                arena[parent_index].height = max(child_height, parent_left_height);
+
+                // set the parent's parent
+                arena[parent_index].parent = old_parent_index;
             }
         }
+
     }
 }
 
