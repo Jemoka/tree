@@ -1,13 +1,15 @@
+use std::rc::Rc;
 use std::cmp::max;
+use std::cmp::PartialOrd;
 
 //// AVL Tree ////
 // Generic Representation of an AVL tree node
 
-pub struct AVLTree<'a, T:Clone> {
+pub struct AVLTree<'a, T:Clone+PartialOrd> {
     arena: Vec<AVLTreeNode<'a, T>>
 }
 
-impl<'a, T:Clone> AVLTree<'a, T> {
+impl<'a, T:Clone+PartialOrd> AVLTree<'a, T> {
     pub fn new() -> AVLTree<'a, T>{
         AVLTree { arena: vec![] }
     }
@@ -21,8 +23,11 @@ impl<'a, T:Clone> AVLTree<'a, T> {
         let mut num_visited = 0usize;
 
         // Create a stack and keep track of the current node
-        let mut stack:Vec<usize> = vec![0];
-        let mut current = 0;
+        let root = self.root();
+        let mut stack:Vec<usize> = vec![root];
+
+        let mut current = root;
+
 
         // DFS!
         while num_visited < n {
@@ -62,9 +67,72 @@ impl<'a, T:Clone> AVLTree<'a, T> {
     }
 
     // Insert
+    // Get the value given an index
+    // pub fn insert(&mut self, val:T) -> Option<T> {
+
+    //     // Create the visited array
+    //     let mut visited = vec![false; self.arena.len()];
+
+    //     // Create a stack and keep track of the current node
+    //     let root = self.root();
+    //     let mut stack:Vec<usize> = vec![root];
+
+    //     let mut current = root;
+
+    //     // placeholder for added node
+    //     let added_node: AVLTreeNode<T>;
+
+    //     // get the new index (length of existing)
+    //     let new_index = self.arena.len();
+
+    //     // DFS!
+    //     // we break explicitly when the adding is done
+    //     loop {
+    //         // Track and increment number of visited
+    //         current = stack.pop().unwrap();
+    //         visited[current] = true;
+
+    //         // Check whether to check left or right node
+    //         if self.arena[current].value >= val {
+    //             // check right and append if exists
+    //             // if not, insert and we did it!
+    //             if let Some(l) = self.arena[current].right {
+    //                 if !visited[l] {stack.push(l);}
+    //             } else {
+    //                 self.arena.push(AVLTreeNode {
+    //                     left:None,
+    //                     right:None,
+    //                     parent:Some(current),
+    //                     index: new_index,
+    //                     height: 0,
+    //                     value: val,
+    //                     container: self
+    //                 });
+    //             }
+    //         } else {
+    //             // check left
+    //         }
+
+    //         // Push the left to be visited unto the stack if not visited
+    //         if let Some(l) = self.arena[current].left {
+    //             if !visited[l] {
+    //                 stack.push(l);
+    //             }
+    //         }
+
+    //         // Push the right to be visited unto the stack if not visited
+    //         if let Some(l) = self.arena[current].right {
+    //             if !visited[l] {
+    //                 stack.push(l);
+    //             }
+    //         }
+    //     }
+
+    //     return Some(self.arena[current].value.clone());
+    // }
 }
 
-pub struct AVLTreeNode<'a, T:Clone> {
+pub struct AVLTreeNode<'a, T:Clone+PartialOrd> {
     pub left: Option<usize>,
     pub right: Option<usize>,
     pub parent: Option<usize>,
@@ -77,7 +145,7 @@ pub struct AVLTreeNode<'a, T:Clone> {
     pub container: &'a mut AVLTree<'a, T>
 }
 
-impl<'a, T:Clone> AVLTreeNode<'a, T> {
+impl<'a, T:Clone+PartialOrd> AVLTreeNode<'a, T> {
 
     // Left rotation
     pub fn rotate_left(&mut self) {
