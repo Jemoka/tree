@@ -10,13 +10,33 @@ use std::cmp::PartialOrd;
 //// AVL Tree ////
 // Generic Representation of an AVL tree node
 
+#[derive(Debug, Clone)]
 pub struct AVLTree<T:Clone+PartialOrd> {
     arena: Vec<AVLTreeNode<T>>
 }
 
 impl<'a, T:Clone+PartialOrd> AVLTree<T> {
-    pub fn new() -> AVLTree<T>{
-        AVLTree { arena: vec![] }
+    pub fn new(val:T) -> Rc<RefCell<AVLTree<T>>> {
+        // Create a counted reference of our newly minted tree object
+        let tree_rc = Rc::new(RefCell::new(AVLTree { arena: vec![] }));
+
+        // Create the root node, and clone the Rc pointer into the object
+        let root_node =
+            AVLTreeNode {
+                left:None,
+                right:None,
+                parent:None,
+                index: 0,
+                height: 0,
+                value: val.clone(),
+                container: tree_rc.clone()
+            };
+
+        // Borrow the pointer as mutable and push our root node
+        tree_rc.borrow_mut().arena.push(root_node);
+
+        // Return the actual tree
+        return tree_rc;
     }
 
     // Get the value given an index
@@ -73,81 +93,90 @@ impl<'a, T:Clone+PartialOrd> AVLTree<T> {
 
     // Insert
     // Get the value given an index
-    // pub fn insert(&mut self, val:T) -> Option<T> {
+    pub fn insert(&mut self, val:&T) -> Option<T> {
 
-    //     // Create the visited array
-    //     let mut visited = vec![false; self.arena.len()];
+        // Create the visited array
+        let mut visited = vec![false; self.arena.len()];
 
-    //     // Create a stack and keep track of the current node
-    //     let root = self.root();
-    //     let mut stack:Vec<usize> = vec![root];
+        // Create a stack and keep track of the current node
+        let root = self.root();
+        let mut stack:Vec<usize> = vec![root];
+        let mut current;
 
-    //     let mut current = root;
+        // placeholder for added node
+        let mut added_node: AVLTreeNode<T>;
 
-    //     // placeholder for added node
-    //     let added_node: AVLTreeNode<T>;
+        // get the new index (length of existing)
+        let new_index = self.arena.len();
 
-    //     // get the new index (length of existing)
-    //     let new_index = self.arena.len();
+        // DFS!
+        // we break explicitly when the adding is done
+        loop {
+            // Track and increment number of visited
+            current = stack.pop().unwrap();
+            visited[current] = true;
 
-    //     // DFS!
-    //     // we break explicitly when the adding is done
-    //     loop {
-    //         // Track and increment number of visited
-    //         current = stack.pop().unwrap();
-    //         visited[current] = true;
+            // Check whether to check left or right node
+            if self.arena[current].value < *val {
+                // check right and append if exists
+                // if not, insert and we did it!
+                if let Some(l) = self.arena[current].right {
+                    if !visited[l] {stack.push(l);}
+                } else {
+                    added_node = AVLTreeNode {
+                        left:None,
+                        right:None,
+                        parent:Some(current),
+                        index: new_index,
+                        height: 0,
+                        value: val.clone(),
+                        container: self.arena[current].container.clone()
+                    };
+                    self.arena.push(added_node);
+                    self.arena[current].right = Some(new_index);
+                    break;
+                }
+            } else {
+                // check left and append if exists
+                // if not, insert and we did it!
+                if let Some(l) = self.arena[current].left {
+                    if !visited[l] {stack.push(l);}
+                } else {
+                    added_node = AVLTreeNode {
+                        left:None,
+                        right:None,
+                        parent:Some(current),
+                        index: new_index,
+                        height: 0,
+                        value: val.clone(),
+                        container: self.arena[current].container.clone()
+                    };
+                    self.arena.push(added_node);
+                    self.arena[current].left = Some(new_index);
+                }
 
-    //         // Check whether to check left or right node
-    //         if self.arena[current].value >= val {
-    //             // check right and append if exists
-    //             // if not, insert and we did it!
-    //             if let Some(l) = self.arena[current].right {
-    //                 if !visited[l] {stack.push(l);}
-    //             } else {
-    //                 self.arena.push(AVLTreeNode {
-    //                     left:None,
-    //                     right:None,
-    //                     parent:Some(current),
-    //                     index: new_index,
-    //                     height: 0,
-    //                     value: val,
-    //                     container: self
-    //                 });
-    //             }
-    //         } else {
-    //             // check left
-    //         }
+            }
 
-    //         // Push the left to be visited unto the stack if not visited
-    //         if let Some(l) = self.arena[current].left {
-    //             if !visited[l] {
-    //                 stack.push(l);
-    //             }
-    //         }
+            // Height upwards
+            
+        }
 
-    //         // Push the right to be visited unto the stack if not visited
-    //         if let Some(l) = self.arena[current].right {
-    //             if !visited[l] {
-    //                 stack.push(l);
-    //             }
-    //         }
-    //     }
-
-    //     return Some(self.arena[current].value.clone());
-    // }
+        return Some(self.arena[current].value.clone());
+    }
 }
 
+#[derive(Debug, Clone)]
 pub struct AVLTreeNode<T:Clone+PartialOrd> {
     pub left: Option<usize>,
     pub right: Option<usize>,
     pub parent: Option<usize>,
 
-    pub index: usize,
+    index: usize,
 
-    pub height: u32,
+    height: u32,
     pub value: T,
 
-    pub container: Rc<RefCell<AVLTree<T>>>
+    container: Rc<RefCell<AVLTree<T>>>
 }
 
 impl<T:Clone+PartialOrd> AVLTreeNode<T> {
@@ -280,5 +309,6 @@ impl<T:Clone+PartialOrd> AVLTreeNode<T> {
 }
 
 fn main() {
-    // let mut test = AVLTree::<u32>::new();
+    let test = AVLTree::<u32>::new(1);
+    // dbg!(test.borrow_mut().);
 }
