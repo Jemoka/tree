@@ -84,9 +84,8 @@ impl<'a, T:Clone+PartialOrd+std::fmt::Debug> AVLTreeArena<T> {
 
         let mut current = root;
 
-
         // DFS!
-        while num_visited < n {
+        while num_visited <= n && stack.len() > 0{
             // Track and increment number of visited
             num_visited += 1;
             current = stack.pop().unwrap();
@@ -371,10 +370,8 @@ impl<T:Clone+PartialOrd+std::fmt::Debug> AVLTreeNode<T> {
 
 fn main() {
     let mut test = AVLTree::<u32>::new(0);
-    dbg!("INSERTING 1");
-    test.insert(1);
-    dbg!("INSERTING 2");
-    test.insert(2);
+    test.insert(8);
+    test.insert(0);
 
     for i in 0..test.size() {
         dbg!(test.nth(i));
