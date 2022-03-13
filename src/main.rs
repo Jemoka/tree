@@ -1,16 +1,21 @@
+// Shared pointer facilities
 use std::rc::Rc;
+use std::cell::RefMut;
+use std::cell::RefCell;
+
+// Partial equivalence failities
 use std::cmp::max;
 use std::cmp::PartialOrd;
 
 //// AVL Tree ////
 // Generic Representation of an AVL tree node
 
-pub struct AVLTree<'a, T:Clone+PartialOrd> {
-    arena: Vec<AVLTreeNode<'a, T>>
+pub struct AVLTree<T:Clone+PartialOrd> {
+    arena: Vec<AVLTreeNode<T>>
 }
 
-impl<'a, T:Clone+PartialOrd> AVLTree<'a, T> {
-    pub fn new() -> AVLTree<'a, T>{
+impl<'a, T:Clone+PartialOrd> AVLTree<T> {
+    pub fn new() -> AVLTree<T>{
         AVLTree { arena: vec![] }
     }
 
@@ -132,7 +137,7 @@ impl<'a, T:Clone+PartialOrd> AVLTree<'a, T> {
     // }
 }
 
-pub struct AVLTreeNode<'a, T:Clone+PartialOrd> {
+pub struct AVLTreeNode<T:Clone+PartialOrd> {
     pub left: Option<usize>,
     pub right: Option<usize>,
     pub parent: Option<usize>,
@@ -142,17 +147,18 @@ pub struct AVLTreeNode<'a, T:Clone+PartialOrd> {
     pub height: u32,
     pub value: T,
 
-    pub container: &'a mut AVLTree<'a, T>
+    pub container: Rc<RefCell<AVLTree<T>>>
 }
 
-impl<'a, T:Clone+PartialOrd> AVLTreeNode<'a, T> {
+impl<T:Clone+PartialOrd> AVLTreeNode<T> {
 
     // Left rotation
     pub fn rotate_left(&mut self) {
         // create a borrow who has a nonmutable view of the
         // arena inside. This is to appease the borrow checker
         // and race-condition-de-possibleifier of Rust
-        let arena = &mut self.container.arena;
+        let mut container_tree:RefMut<AVLTree<T>> = self.container.borrow_mut();
+        let arena = &mut container_tree.arena;
 
         match self.right {
             // If it does not exist, return.
@@ -214,7 +220,8 @@ impl<'a, T:Clone+PartialOrd> AVLTreeNode<'a, T> {
         // create a borrow who has a nonmutable view of the
         // arena inside. This is to appease the borrow checker
         // and race-condition-de-possibleifier of Rust
-        let arena = &mut self.container.arena;
+        let mut container_tree:RefMut<AVLTree<T>> = self.container.borrow_mut();
+        let arena = &mut container_tree.arena;
 
         match self.left {
             // If it does not exist, return.
