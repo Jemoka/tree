@@ -144,6 +144,7 @@ impl<'a, T:Clone+PartialOrd+std::fmt::Debug> AVLTreeArena<T> {
     // Insert
     // Get the value given an index
     pub fn insert(&mut self, val:T) -> Option<AVLTreeNode<T>> {
+        println!("Inserting: {:?}", val.clone());
         // Create the visited array
         let mut visited = vec![false; self.store.len()];
 
@@ -174,7 +175,7 @@ impl<'a, T:Clone+PartialOrd+std::fmt::Debug> AVLTreeArena<T> {
                         right:None,
                         parent:Some(current),
                         index: new_index,
-                        height: 1,
+                        height: 0,
                         value: val.clone(),
                         container: self.store[current].container.clone()
                     });
@@ -192,7 +193,7 @@ impl<'a, T:Clone+PartialOrd+std::fmt::Debug> AVLTreeArena<T> {
                         right:None,
                         parent:Some(current),
                         index: new_index,
-                        height: 1,
+                        height: 0,
                         value: val.clone(),
                         container: self.store[current].container.clone()
                     });
@@ -217,6 +218,8 @@ impl<'a, T:Clone+PartialOrd+std::fmt::Debug> AVLTreeArena<T> {
             let right_height = match self.store[current].right { Some(i) => (self.store[i]).height,
                                                                     None => 0 };
 
+            println!("Node: {:?}, Left: {:?}; Right: {:?}",self.store[current].value.clone(), left_height, right_height);
+
             // we update its height
             let new_height = max(left_height, right_height)+1;
             self.store[current].height = new_height;
@@ -233,7 +236,6 @@ impl<'a, T:Clone+PartialOrd+std::fmt::Debug> AVLTreeArena<T> {
         }
 
 
-        dbg!(self.store.clone());
 
         // we can safely .clone() the added node here as it only countains
         // indexes and a pointer to things, which is not that bad
@@ -261,6 +263,7 @@ impl<T:Clone+PartialOrd+std::fmt::Debug> AVLTreeNode<T> {
 
     // Left rotation
     pub fn rotate_left(&mut self) {
+        println!("LEFT! on {:?}", self.value);
         // create a borrow who has a nonmutable view of the
         // store inside. This is to appease the borrow checker
         // and race-condition-de-possibleifier of Rust
@@ -313,7 +316,7 @@ impl<T:Clone+PartialOrd+std::fmt::Debug> AVLTreeNode<T> {
                 store[parent_index].left  = Some(self.index);
 
                 // set the parent's new height
-                store[parent_index].height = max(child_height, parent_right_height)+1;
+                store[parent_index].height = max(self.height, parent_right_height)+1;
 
                 // set the parent's parent
                 store[parent_index].parent = old_parent_index;
@@ -324,6 +327,7 @@ impl<T:Clone+PartialOrd+std::fmt::Debug> AVLTreeNode<T> {
 
     // Right rotation
     pub fn rotate_right(&mut self) {
+        println!("RIGHT! on {:?}", self.value);
         // create a borrow who has a nonmutable view of the
         // store inside. This is to appease the borrow checker
         // and race-condition-de-possibleifier of Rust
@@ -376,7 +380,7 @@ impl<T:Clone+PartialOrd+std::fmt::Debug> AVLTreeNode<T> {
                 store[parent_index].right = Some(self.index);
 
                 // set the parent's new height
-                store[parent_index].height = max(child_height, parent_left_height)+1;
+                store[parent_index].height = max(self.height, parent_left_height)+1;
 
                 // set the parent's parent
                 store[parent_index].parent = old_parent_index;
@@ -388,9 +392,9 @@ impl<T:Clone+PartialOrd+std::fmt::Debug> AVLTreeNode<T> {
 
 fn main() {
     let mut test = AVLTree::<u32>::new(0);
+    test.insert(14);
     test.insert(1);
-    test.insert(1);
-    test.insert(2);
+    // test.insert(0);
 
-    dbg!(test.take(test.size()));
+    // dbg!(test.take(test.size()));
 }
