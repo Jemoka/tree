@@ -7,6 +7,12 @@ pub struct AVLTree<'a, T:Clone> {
     arena: Vec<AVLTreeNode<'a, T>>
 }
 
+impl<'a, T:Clone> AVLTree<'a, T> {
+    pub fn new() -> AVLTree<'a, T>{
+        AVLTree { arena: vec![] }
+    }
+}
+
 pub struct AVLTreeNode<'a, T:Clone> {
     pub left: Option<usize>,
     pub right: Option<usize>,
@@ -19,13 +25,6 @@ pub struct AVLTreeNode<'a, T:Clone> {
 
     container: &'a mut AVLTree<'a, T>
 }
-
-// Implement insertion, etc. 
-// impl <T:Clone> SelfBalancingTree<T> for AVLTree<T> {
-//     fn get_nth(&self, nth:u32) -> T {
-
-//     }
-// }
 
 impl<'a, T:Clone> AVLTreeNode<'a, T> {
 
@@ -155,7 +154,5 @@ impl<'a, T:Clone> AVLTreeNode<'a, T> {
 }
 
 fn main() {
-    
-
-    println!("Hello, world!");
+    let test = AVLTree::<u32>::new();
 }
