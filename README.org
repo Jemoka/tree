@@ -1,0 +1,78 @@
+* AVL Tree
+This is an implementation of an AVL Tree in Rust in completion of CS223 in Rust. There is actually a few surprising details and complication with the AVL tree implementation which is worth mentioning here.
+
+** Usage Notes
+There are three components in the system. A boxed =AVLTree= object which the user interacts with, a shadow =AVLTreeArena= object with is privately managed by =AVLTree=, and =AVLTreeNode= objects which includes a pointer to the =AVLTreeArena= from which is belongs.
+
+Here's an usage example:
+
+#+begin_src rust
+fn main() {
+    // initialize the tree of type <u32>, put 1 as the orginial root 
+    let mut tree = AVLTree::<u32>::new(1);
+    // insert additional values 1 and 4
+    tree.insert(1);
+    tree.insert(4);
+
+    // take ("read") all of the values in the tree, in sorted tree order
+    dbg!(tree.take(tree.size()));
+}
+#+end_src
+
+** Technical Details
+Rust does not have pointers (not as we expect, anyways.) It is considered =unsafe= to dereference a pointer because it may cause multiple ownership of memory---resulting in possible leaks and race conditions.
+
+This makes inter-node referencing in any tree-type object really difficult. The classical implementation that would address this issue leverages a concept named "arena tree"---whereby modifications of the tree is done to tree /indexes/ upon information stored in a flat array of indexed tree nodes.
+
+Hence, each node is light: containing three indexes (parents, left, right) --- 4 times 4 bytes, the actual carried value, and a 32/64-bit pointer to the arena. 
+
+As all components point to one arena vector, and the vector /contains/ ("owns") the components, there is no cyclic references within the same lifetime (in Rust-lingo: "multiple borrows").
+
+This is done, in practice, with a reference object with interior mutability. That is:
+
+#+begin_src rust
+Rc<RefCell<AVLTreeArena<T>>>
+#+end_src
+
+The =Rc= object is a shared, view only, reference object. No elements can own its actual contents (and hence only own copies of the /reference/) unless no copies of the =Rc= object is in lifetime.
+
+=Rc= objects, as aforementioned, are view only. Of course, our nodes have to be able to modify the tree. Hence, we put a =RefCell= inside the =Rc=, allowing interior, single-borrows of the object. =RefCell= are in some ways the opposite of =Rc=: they allow mutable and non-mutable borrows, but only one borrow can be in lifetime at once.
+
+In single-threaded applications, this would not be an issue. Every node has a weak reference (via =Rc=) to a single =RefCell=, and they check-in and out the =RefCell= by mutably borrowing it, editing it, and having the borrow go out of scope. When the last copy of =Rc= is out of scope, the =RefCell= destructs its contents before being destructed by the =Rc=.
+
+As all end states automatically occur when elements go out of scope, no memory safety issues incur.
+
+This pattern, however, makes it impossible for the user to actually interact with the tree. During an interaction, a /user/ has to check out the =RefCell= as immutable and ask one of its nodes to do an operation---resulting in the node asking to mutably borrow the same =RefCell=.
+
+To resolve this, we create an =Rc=, find a pointer to it, and unsafedly force another object to take ownership of the contents. Users then interact with that "box" object, which will pass the operations directly to the underlying Arena with the box owns.
+
+Upon the destruction of the box, we have to ensure that its owned actual tree is also destructed.
+
+Hence, upon users creating an "AVLTree", the are actually creating:
+
+#+begin_src rust
+#[derive(Debug)]
+pub struct AVLTree<'a, T:Clone+PartialOrd+std::fmt::Debug> {
+    arena: &'a mut AVLTreeArena<T> // mutable, safe, pointer to actual tree
+}
+#+end_src
+
+by invoking:
+
+#+begin_src rust
+// Creates a new AVL tree with the info
+pub fn new(val:T) -> Self {
+    // Get a rc reference of the arena
+    let arena_ref = AVLTreeArena::<T>::new(val);
+    // Get the raw pointer to the arena
+    let arena_pointer_raw = arena_ref.as_ptr();
+
+    unsafe {
+                // unsafe pointer derefed + boxed into safe mut
+        AVLTree { arena: &mut *arena_pointer_raw }
+    }
+}
+#+end_src
+
+Upon destruction, the mut-pointer pointed object is dereferenced.
+
