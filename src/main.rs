@@ -93,7 +93,7 @@ impl<'a, T:Clone+PartialOrd> AVLTree<T> {
 
     // Insert
     // Get the value given an index
-    pub fn insert(&mut self, val:&T) -> Option<T> {
+    pub fn insert(&mut self, val:&T) -> Option<AVLTreeNode<T>> {
 
         // Create the visited array
         let mut visited = vec![false; self.arena.len()];
@@ -120,9 +120,6 @@ impl<'a, T:Clone+PartialOrd> AVLTree<T> {
                 if let Some(l) = self.arena[current].right {
                     if !visited[l] {stack.push(l);}
                 } else {
-
-                    // we can safely .clone() the added node here as it only countains
-                    // indexes and a pointer to things, which is not that bad
                     self.arena.push(AVLTreeNode {
                         left:None,
                         right:None,
@@ -141,8 +138,6 @@ impl<'a, T:Clone+PartialOrd> AVLTree<T> {
                 if let Some(l) = self.arena[current].left {
                     if !visited[l] {stack.push(l);}
                 } else {
-                    // we can safely .clone() the added node here as it only countains
-                    // indexes and a pointer to things, which is not that bad
                     self.arena.push(AVLTreeNode {
                         left:None,
                         right:None,
@@ -157,45 +152,43 @@ impl<'a, T:Clone+PartialOrd> AVLTree<T> {
 
             }
 
-            // Re-calculate height upwards
+            // Re-calculate height upwards as well as rotate as needed
             let mut current = new_index;
 
-            // // as long as our current node has a parent
-            // // we process its parent
+            // as long as our current node has a parent
+            // we process its parent
             while let Some(p) = self.arena[current].parent {
                 current = p;
 
+                // we get left and right heights
+                let left_height = match self.arena[current].left { Some(i) => (self.arena[i]).height,
+                                                                   None => 0 };
+                let right_height = match self.arena[current].right { Some(i) => (self.arena[i]).height,
+                                                                     None => 0 };
+
                 // we update its height
-                let new_height = match self.arena[current].left { Some(i) => (self.arena[i]).height,
-                                                      None => 0 } +
-                                 match self.arena[current].right { Some(i) => (self.arena[i]).height,
-                                                      None => 0 };
-                self.arena[current].height = new_height+1;
+                let new_height = left_height+right_height+1;
+                self.arena[current].height = new_height;
+
+                // we now perform rotations as needed
+                if left_height > right_height && left_height-right_height > 1 {
+                    // Need to rotate right!
+                    self.arena[current].rotate_right();
+                    // Set current to be the "top" node after rotation
+                    current = self.arena[current].parent.unwrap();
+                } else if left_height < right_height && right_height-left_height > 1 {
+                    // Need to rotate left!
+                    self.arena[current].rotate_right();
+                    // Set current to be the "top" node after rotation
+                    current = self.arena[current].parent.unwrap();
+                }
+
             }
-
-
-            // let arena = &mut self.arena;
-            // let mut current = &arena[new_index];
-
-            // // as long as our current node has a parent
-            // // we process its parent
-            // while let Some(p) = current.parent {
-            //     // we first update current to the parent node
-            //     current = &arena[p];
-
-            //     (&mut arena[p]).height = 12;
-
-            //     // let test = &mut arena[3];
-
-            //     // we update its height
-            //     // current.height = match current.left { Some(i) => (&mut arena[i]).height,
-            //     //                                       None => 0 } +
-            //     //                  match current.right { Some(i) => (&mut arena[i]).height,
-            //     //                                       None => 0 };
-            // }           
         }
 
-        return Some(self.arena[current].value.clone());
+        // we can safely .clone() the added node here as it only countains
+        // indexes and a pointer to things, which is not that bad
+        return Some(self.arena[current].clone());
     }
 }
 
