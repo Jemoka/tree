@@ -10,11 +10,11 @@ use std::cmp::PartialOrd;
 //// AVL Tree ////
 // The User-Facing AVL Tree. It actually just an wrapper that manipulates an AVLTreeArena. 
 #[derive(Debug)]
-pub struct AVLTree<'a, T:Clone+PartialOrd> {
+pub struct AVLTree<'a, T:Clone+PartialOrd+std::fmt::Debug> {
     arena: &'a mut AVLTreeArena<T>
 }
 
-impl<'a, T:Clone+PartialOrd> AVLTree<'a, T> {
+impl<'a, T:Clone+PartialOrd+std::fmt::Debug> AVLTree<'a, T> {
     // Creates a new AVL tree with the info
     pub fn new(val:T) -> Self {
         // Get a rc reference of the arena
@@ -38,14 +38,15 @@ impl<'a, T:Clone+PartialOrd> AVLTree<'a, T> {
 }
 
 // AVLTreeArena: used to store pointer objects, memory manegement facilities, etc.
+// also is where most of the logic goes in this setup.
 // Nodes have Counted References of Mutable Reference Cells of this store shared across
 // all of them to maintain conchordiance.
 #[derive(Debug, Clone)]
-struct AVLTreeArena<T:Clone+PartialOrd> {
+struct AVLTreeArena<T:Clone+PartialOrd+std::fmt::Debug> {
     store: Vec<AVLTreeNode<T>>
 }
 
-impl<'a, T:Clone+PartialOrd> AVLTreeArena<T> {
+impl<'a, T:Clone+PartialOrd+std::fmt::Debug> AVLTreeArena<T> {
     pub fn new(val:T) -> Rc<RefCell<AVLTreeArena<T>>> {
         // Create a counted reference of our newly minted tree object
         let tree_rc = Rc::new(RefCell::new(AVLTreeArena { store: vec![] }));
@@ -159,7 +160,7 @@ impl<'a, T:Clone+PartialOrd> AVLTreeArena<T> {
                         right:None,
                         parent:Some(current),
                         index: new_index,
-                        height: 0,
+                        height: 1,
                         value: val.clone(),
                         container: self.store[current].container.clone()
                     });
@@ -177,11 +178,12 @@ impl<'a, T:Clone+PartialOrd> AVLTreeArena<T> {
                         right:None,
                         parent:Some(current),
                         index: new_index,
-                        height: 0,
+                        height: 1,
                         value: val.clone(),
                         container: self.store[current].container.clone()
                     });
                     self.store[current].left = Some(new_index);
+                    break;
                 }
 
             }
@@ -223,7 +225,7 @@ impl<'a, T:Clone+PartialOrd> AVLTreeArena<T> {
 }
 
 #[derive(Debug, Clone)]
-pub struct AVLTreeNode<T:Clone+PartialOrd> {
+pub struct AVLTreeNode<T:Clone+PartialOrd+std::fmt::Debug> {
     pub left: Option<usize>,
     pub right: Option<usize>,
     pub parent: Option<usize>,
@@ -236,10 +238,11 @@ pub struct AVLTreeNode<T:Clone+PartialOrd> {
     container: Rc<RefCell<AVLTreeArena<T>>>
 }
 
-impl<T:Clone+PartialOrd> AVLTreeNode<T> {
+impl<T:Clone+PartialOrd+std::fmt::Debug> AVLTreeNode<T> {
 
     // Left rotation
     pub fn rotate_left(&mut self) {
+        dbg!("RIGHT!");
         // create a borrow who has a nonmutable view of the
         // store inside. This is to appease the borrow checker
         // and race-condition-de-possibleifier of Rust
@@ -303,6 +306,7 @@ impl<T:Clone+PartialOrd> AVLTreeNode<T> {
 
     // Right rotation
     pub fn rotate_right(&mut self) {
+        dbg!("LEFT!");
         // create a borrow who has a nonmutable view of the
         // store inside. This is to appease the borrow checker
         // and race-condition-de-possibleifier of Rust
@@ -366,7 +370,13 @@ impl<T:Clone+PartialOrd> AVLTreeNode<T> {
 }
 
 fn main() {
-    let mut test = AVLTree::<u32>::new(1);
-    test.insert(12);
+    let mut test = AVLTree::<u32>::new(0);
+    dbg!("INSERTING 1");
     test.insert(1);
+    dbg!("INSERTING 2");
+    test.insert(2);
+
+    for i in 0..test.size() {
+        dbg!(test.nth(i));
+    }
 }
