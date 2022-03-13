@@ -1,3 +1,6 @@
+// Debug facilities
+use derivative::Derivative;
+
 // Shared pointer facilities
 use std::rc::Rc;
 use std::cell::RefMut;
@@ -28,7 +31,7 @@ impl<'a, T:Clone+PartialOrd+std::fmt::Debug> AVLTree<'a, T> {
     }
 
     // Get the value given an index
-    pub fn nth(&self, n:usize) -> Option<T> { self.arena.nth(n) }
+    pub fn take(&self, n:usize) -> Option<Vec<T>> { self.arena.take(n) }
 
     // Insert a value
     pub fn insert(&mut self, val:T) -> Option<AVLTreeNode<T>> { self.arena.insert(val) }
@@ -71,24 +74,37 @@ impl<'a, T:Clone+PartialOrd+std::fmt::Debug> AVLTreeArena<T> {
     }
 
     // Get the value given an index
-    pub fn nth(&self, n:usize) -> Option<T> {
-        if n >= self.store.len() { return None };
+    pub fn take(&self, n:usize) -> Option<Vec<T>> {
+        if n > self.store.len() { return None };
 
         // Create the visited array
         let mut visited = vec![false; self.store.len()];
-        let mut num_visited = 0usize;
+        let mut results:Vec<T> = vec![];
 
         // Create a stack and keep track of the current node
         let root = self.root();
         let mut stack:Vec<usize> = vec![root];
 
-        let mut current = root;
+        // Set the current node to the root node
+        let mut current;
+
+        // Get the previous height of the stack
+        let mut prev_height = 0;
 
         // DFS!
-        while num_visited <= n && stack.len() > 0{
-            // Track and increment number of visited
-            num_visited += 1;
+        while results.len() < n && stack.len() > 0 {
+
             current = stack.pop().unwrap();
+            let height = stack.len();
+
+            // Track and increment number of visited
+            // if popping results in a shorter stack
+            // we are tracking it as we are backing up
+            if height < prev_height {
+                results.push(self.store[current].value.clone());
+            }
+            prev_height = height;
+
             visited[current] = true;
 
             // Push the left to be visited unto the stack if not visited
@@ -106,7 +122,7 @@ impl<'a, T:Clone+PartialOrd+std::fmt::Debug> AVLTreeArena<T> {
             }
         }
 
-        return Some(self.store[current].value.clone());
+        return Some(results);
     }
 
     // Finds the global root index
@@ -128,7 +144,6 @@ impl<'a, T:Clone+PartialOrd+std::fmt::Debug> AVLTreeArena<T> {
     // Insert
     // Get the value given an index
     pub fn insert(&mut self, val:T) -> Option<AVLTreeNode<T>> {
-
         // Create the visited array
         let mut visited = vec![false; self.store.len()];
 
@@ -148,7 +163,7 @@ impl<'a, T:Clone+PartialOrd+std::fmt::Debug> AVLTreeArena<T> {
             visited[current] = true;
 
             // Check whether to check left or right node
-            if self.store[current].value < val {
+            if self.store[current].value <= val {
                 // check right and append if exists
                 // if not, insert and we did it!
                 if let Some(l) = self.store[current].right {
@@ -203,7 +218,7 @@ impl<'a, T:Clone+PartialOrd+std::fmt::Debug> AVLTreeArena<T> {
                                                                     None => 0 };
 
             // we update its height
-            let new_height = left_height+right_height+1;
+            let new_height = max(left_height, right_height)+1;
             self.store[current].height = new_height;
 
             // we now perform rotations as needed
@@ -212,10 +227,13 @@ impl<'a, T:Clone+PartialOrd+std::fmt::Debug> AVLTreeArena<T> {
                 self.store[current].rotate_right();
             } else if left_height < right_height && right_height-left_height > 1 {
                 // Need to rotate left!
-                self.store[current].rotate_right();
+                self.store[current].rotate_left();
             }
 
         }
+
+
+        dbg!(self.store.clone());
 
         // we can safely .clone() the added node here as it only countains
         // indexes and a pointer to things, which is not that bad
@@ -223,7 +241,8 @@ impl<'a, T:Clone+PartialOrd+std::fmt::Debug> AVLTreeArena<T> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
 pub struct AVLTreeNode<T:Clone+PartialOrd+std::fmt::Debug> {
     pub left: Option<usize>,
     pub right: Option<usize>,
@@ -234,6 +253,7 @@ pub struct AVLTreeNode<T:Clone+PartialOrd+std::fmt::Debug> {
     height: u32,
     pub value: T,
 
+    #[derivative(Debug="ignore")]
     container: Rc<RefCell<AVLTreeArena<T>>>
 }
 
@@ -241,7 +261,6 @@ impl<T:Clone+PartialOrd+std::fmt::Debug> AVLTreeNode<T> {
 
     // Left rotation
     pub fn rotate_left(&mut self) {
-        dbg!("RIGHT!");
         // create a borrow who has a nonmutable view of the
         // store inside. This is to appease the borrow checker
         // and race-condition-de-possibleifier of Rust
@@ -275,7 +294,7 @@ impl<T:Clone+PartialOrd+std::fmt::Debug> AVLTreeNode<T> {
                 self.right = parent.left;
 
                 // update the height
-                self.height = child_height;
+                self.height = child_height+1;
 
                 // update the parent ID of current node
                 self.parent = Some(parent.index);
@@ -294,7 +313,7 @@ impl<T:Clone+PartialOrd+std::fmt::Debug> AVLTreeNode<T> {
                 store[parent_index].left  = Some(self.index);
 
                 // set the parent's new height
-                store[parent_index].height = max(child_height, parent_right_height);
+                store[parent_index].height = max(child_height, parent_right_height)+1;
 
                 // set the parent's parent
                 store[parent_index].parent = old_parent_index;
@@ -305,7 +324,6 @@ impl<T:Clone+PartialOrd+std::fmt::Debug> AVLTreeNode<T> {
 
     // Right rotation
     pub fn rotate_right(&mut self) {
-        dbg!("LEFT!");
         // create a borrow who has a nonmutable view of the
         // store inside. This is to appease the borrow checker
         // and race-condition-de-possibleifier of Rust
@@ -339,7 +357,7 @@ impl<T:Clone+PartialOrd+std::fmt::Debug> AVLTreeNode<T> {
                 self.left = parent.right;
 
                 // update the height
-                self.height = child_height;
+                self.height = child_height+1;
 
                 // update the parent ID of current node
                 self.parent = Some(parent.index);
@@ -358,7 +376,7 @@ impl<T:Clone+PartialOrd+std::fmt::Debug> AVLTreeNode<T> {
                 store[parent_index].right = Some(self.index);
 
                 // set the parent's new height
-                store[parent_index].height = max(child_height, parent_left_height);
+                store[parent_index].height = max(child_height, parent_left_height)+1;
 
                 // set the parent's parent
                 store[parent_index].parent = old_parent_index;
@@ -370,10 +388,9 @@ impl<T:Clone+PartialOrd+std::fmt::Debug> AVLTreeNode<T> {
 
 fn main() {
     let mut test = AVLTree::<u32>::new(0);
-    test.insert(8);
-    test.insert(0);
+    test.insert(1);
+    test.insert(1);
+    test.insert(2);
 
-    for i in 0..test.size() {
-        dbg!(test.nth(i));
-    }
+    dbg!(test.take(test.size()));
 }
