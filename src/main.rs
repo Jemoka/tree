@@ -103,9 +103,6 @@ impl<'a, T:Clone+PartialOrd> AVLTree<T> {
         let mut stack:Vec<usize> = vec![root];
         let mut current;
 
-        // placeholder for added node
-        let mut added_node: AVLTreeNode<T>;
-
         // get the new index (length of existing)
         let new_index = self.arena.len();
 
@@ -123,7 +120,10 @@ impl<'a, T:Clone+PartialOrd> AVLTree<T> {
                 if let Some(l) = self.arena[current].right {
                     if !visited[l] {stack.push(l);}
                 } else {
-                    added_node = AVLTreeNode {
+
+                    // we can safely .clone() the added node here as it only countains
+                    // indexes and a pointer to things, which is not that bad
+                    self.arena.push(AVLTreeNode {
                         left:None,
                         right:None,
                         parent:Some(current),
@@ -131,8 +131,7 @@ impl<'a, T:Clone+PartialOrd> AVLTree<T> {
                         height: 0,
                         value: val.clone(),
                         container: self.arena[current].container.clone()
-                    };
-                    self.arena.push(added_node);
+                    });
                     self.arena[current].right = Some(new_index);
                     break;
                 }
@@ -142,7 +141,9 @@ impl<'a, T:Clone+PartialOrd> AVLTree<T> {
                 if let Some(l) = self.arena[current].left {
                     if !visited[l] {stack.push(l);}
                 } else {
-                    added_node = AVLTreeNode {
+                    // we can safely .clone() the added node here as it only countains
+                    // indexes and a pointer to things, which is not that bad
+                    self.arena.push(AVLTreeNode {
                         left:None,
                         right:None,
                         parent:Some(current),
@@ -150,15 +151,48 @@ impl<'a, T:Clone+PartialOrd> AVLTree<T> {
                         height: 0,
                         value: val.clone(),
                         container: self.arena[current].container.clone()
-                    };
-                    self.arena.push(added_node);
+                    });
                     self.arena[current].left = Some(new_index);
                 }
 
             }
 
-            // Height upwards
-            
+            // Re-calculate height upwards
+            let mut current = new_index;
+
+            // // as long as our current node has a parent
+            // // we process its parent
+            while let Some(p) = self.arena[current].parent {
+                current = p;
+
+                // we update its height
+                let new_height = match self.arena[current].left { Some(i) => (self.arena[i]).height,
+                                                      None => 0 } +
+                                 match self.arena[current].right { Some(i) => (self.arena[i]).height,
+                                                      None => 0 };
+                self.arena[current].height = new_height+1;
+            }
+
+
+            // let arena = &mut self.arena;
+            // let mut current = &arena[new_index];
+
+            // // as long as our current node has a parent
+            // // we process its parent
+            // while let Some(p) = current.parent {
+            //     // we first update current to the parent node
+            //     current = &arena[p];
+
+            //     (&mut arena[p]).height = 12;
+
+            //     // let test = &mut arena[3];
+
+            //     // we update its height
+            //     // current.height = match current.left { Some(i) => (&mut arena[i]).height,
+            //     //                                       None => 0 } +
+            //     //                  match current.right { Some(i) => (&mut arena[i]).height,
+            //     //                                       None => 0 };
+            // }           
         }
 
         return Some(self.arena[current].value.clone());
