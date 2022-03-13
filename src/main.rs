@@ -11,19 +11,70 @@ impl<'a, T:Clone> AVLTree<'a, T> {
     pub fn new() -> AVLTree<'a, T>{
         AVLTree { arena: vec![] }
     }
+
+    // Get the value given an index
+    pub fn nth(&self, n:usize) -> Option<T> {
+        if n >= self.arena.len() { return None };
+
+        // Create the visited array
+        let mut visited = vec![false; self.arena.len()];
+        let mut num_visited = 0usize;
+
+        // Create a stack and keep track of the current node
+        let mut stack:Vec<usize> = vec![0];
+        let mut current = 0;
+
+        // DFS!
+        while num_visited < n {
+            // Track and increment number of visited
+            num_visited += 1;
+            current = stack.pop().unwrap();
+            visited[current] = true;
+
+            // Push the left to be visited unto the stack if not visited
+            if let Some(l) = self.arena[current].left {
+                if !visited[l] {
+                    stack.push(l);
+                }
+            }
+
+            // Push the right to be visited unto the stack if not visited
+            if let Some(l) = self.arena[current].right {
+                if !visited[l] {
+                    stack.push(l);
+                }
+            }
+        }
+
+        return Some(self.arena[current].value.clone());
+    }
+    
+
+    // Finds the global root index
+    pub fn root(&self) -> usize {
+        let mut canidate = &self.arena[0];
+
+        while canidate.parent != None {
+            canidate = &self.arena[canidate.parent.unwrap()];
+        }
+
+        return canidate.index;
+    }
+
+    // Insert
 }
 
 pub struct AVLTreeNode<'a, T:Clone> {
     pub left: Option<usize>,
     pub right: Option<usize>,
-    parent: Option<usize>,
+    pub parent: Option<usize>,
 
-    index: usize,
+    pub index: usize,
 
-    height: u32,
+    pub height: u32,
     pub value: T,
 
-    container: &'a mut AVLTree<'a, T>
+    pub container: &'a mut AVLTree<'a, T>
 }
 
 impl<'a, T:Clone> AVLTreeNode<'a, T> {
@@ -154,5 +205,5 @@ impl<'a, T:Clone> AVLTreeNode<'a, T> {
 }
 
 fn main() {
-    let test = AVLTree::<u32>::new();
+    // let mut test = AVLTree::<u32>::new();
 }
