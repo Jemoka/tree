@@ -8,17 +8,47 @@ use std::cmp::max;
 use std::cmp::PartialOrd;
 
 //// AVL Tree ////
-// Generic Representation of an AVL tree node
-
-#[derive(Debug, Clone)]
-pub struct AVLTree<T:Clone+PartialOrd> {
-    arena: Vec<AVLTreeNode<T>>
+// The User-Facing AVL Tree. It actually just an wrapper that manipulates an AVLTreeArena. 
+#[derive(Debug)]
+pub struct AVLTree<'a, T:Clone+PartialOrd> {
+    arena: &'a mut AVLTreeArena<T>
 }
 
-impl<'a, T:Clone+PartialOrd> AVLTree<T> {
-    pub fn new(val:T) -> Rc<RefCell<AVLTree<T>>> {
+impl<'a, T:Clone+PartialOrd> AVLTree<'a, T> {
+    // Creates a new AVL tree with the info
+    pub fn new(val:T) -> Self {
+        // Get a rc reference of the arena
+        let arena_ref = AVLTreeArena::<T>::new(val);
+        // Get the raw pointer to the arena
+        let arena_pointer_raw = arena_ref.as_ptr();
+
+        unsafe {
+            AVLTree { arena: &mut *arena_pointer_raw }
+        }
+    }
+
+    // Get the value given an index
+    pub fn nth(&self, n:usize) -> Option<T> { self.arena.nth(n) }
+
+    // Insert a value
+    pub fn insert(&mut self, val:T) -> Option<AVLTreeNode<T>> { self.arena.insert(val) }
+
+    // Get the size of the tree
+    pub fn size(&self) -> usize { self.arena.size() }
+}
+
+// AVLTreeArena: used to store pointer objects, memory manegement facilities, etc.
+// Nodes have Counted References of Mutable Reference Cells of this store shared across
+// all of them to maintain conchordiance.
+#[derive(Debug, Clone)]
+struct AVLTreeArena<T:Clone+PartialOrd> {
+    store: Vec<AVLTreeNode<T>>
+}
+
+impl<'a, T:Clone+PartialOrd> AVLTreeArena<T> {
+    pub fn new(val:T) -> Rc<RefCell<AVLTreeArena<T>>> {
         // Create a counted reference of our newly minted tree object
-        let tree_rc = Rc::new(RefCell::new(AVLTree { arena: vec![] }));
+        let tree_rc = Rc::new(RefCell::new(AVLTreeArena { store: vec![] }));
 
         // Create the root node, and clone the Rc pointer into the object
         let root_node =
@@ -33,7 +63,7 @@ impl<'a, T:Clone+PartialOrd> AVLTree<T> {
             };
 
         // Borrow the pointer as mutable and push our root node
-        tree_rc.borrow_mut().arena.push(root_node);
+        tree_rc.borrow_mut().store.push(root_node);
 
         // Return the actual tree
         return tree_rc;
@@ -41,10 +71,10 @@ impl<'a, T:Clone+PartialOrd> AVLTree<T> {
 
     // Get the value given an index
     pub fn nth(&self, n:usize) -> Option<T> {
-        if n >= self.arena.len() { return None };
+        if n >= self.store.len() { return None };
 
         // Create the visited array
-        let mut visited = vec![false; self.arena.len()];
+        let mut visited = vec![false; self.store.len()];
         let mut num_visited = 0usize;
 
         // Create a stack and keep track of the current node
@@ -62,41 +92,45 @@ impl<'a, T:Clone+PartialOrd> AVLTree<T> {
             visited[current] = true;
 
             // Push the left to be visited unto the stack if not visited
-            if let Some(l) = self.arena[current].left {
+            if let Some(l) = self.store[current].left {
                 if !visited[l] {
                     stack.push(l);
                 }
             }
 
             // Push the right to be visited unto the stack if not visited
-            if let Some(l) = self.arena[current].right {
+            if let Some(l) = self.store[current].right {
                 if !visited[l] {
                     stack.push(l);
                 }
             }
         }
 
-        return Some(self.arena[current].value.clone());
+        return Some(self.store[current].value.clone());
     }
-    
 
     // Finds the global root index
     pub fn root(&self) -> usize {
-        let mut canidate = &self.arena[0];
+        let mut canidate = &self.store[0];
 
         while canidate.parent != None {
-            canidate = &self.arena[canidate.parent.unwrap()];
+            canidate = &self.store[canidate.parent.unwrap()];
         }
 
         return canidate.index;
     }
 
+    // Finds the length of the store
+    pub fn size(&self) -> usize {
+        return self.store.len();
+    }
+
     // Insert
     // Get the value given an index
-    pub fn insert(&mut self, val:&T) -> Option<AVLTreeNode<T>> {
+    pub fn insert(&mut self, val:T) -> Option<AVLTreeNode<T>> {
 
         // Create the visited array
-        let mut visited = vec![false; self.arena.len()];
+        let mut visited = vec![false; self.store.len()];
 
         // Create a stack and keep track of the current node
         let root = self.root();
@@ -104,7 +138,7 @@ impl<'a, T:Clone+PartialOrd> AVLTree<T> {
         let mut current;
 
         // get the new index (length of existing)
-        let new_index = self.arena.len();
+        let new_index = self.store.len();
 
         // DFS!
         // we break explicitly when the adding is done
@@ -114,81 +148,77 @@ impl<'a, T:Clone+PartialOrd> AVLTree<T> {
             visited[current] = true;
 
             // Check whether to check left or right node
-            if self.arena[current].value < *val {
+            if self.store[current].value < val {
                 // check right and append if exists
                 // if not, insert and we did it!
-                if let Some(l) = self.arena[current].right {
+                if let Some(l) = self.store[current].right {
                     if !visited[l] {stack.push(l);}
                 } else {
-                    self.arena.push(AVLTreeNode {
+                    self.store.push(AVLTreeNode {
                         left:None,
                         right:None,
                         parent:Some(current),
                         index: new_index,
                         height: 0,
                         value: val.clone(),
-                        container: self.arena[current].container.clone()
+                        container: self.store[current].container.clone()
                     });
-                    self.arena[current].right = Some(new_index);
+                    self.store[current].right = Some(new_index);
                     break;
                 }
             } else {
                 // check left and append if exists
                 // if not, insert and we did it!
-                if let Some(l) = self.arena[current].left {
+                if let Some(l) = self.store[current].left {
                     if !visited[l] {stack.push(l);}
                 } else {
-                    self.arena.push(AVLTreeNode {
+                    self.store.push(AVLTreeNode {
                         left:None,
                         right:None,
                         parent:Some(current),
                         index: new_index,
                         height: 0,
                         value: val.clone(),
-                        container: self.arena[current].container.clone()
+                        container: self.store[current].container.clone()
                     });
-                    self.arena[current].left = Some(new_index);
-                }
-
-            }
-
-            // Re-calculate height upwards as well as rotate as needed
-            let mut current = new_index;
-
-            // as long as our current node has a parent
-            // we process its parent
-            while let Some(p) = self.arena[current].parent {
-                current = p;
-
-                // we get left and right heights
-                let left_height = match self.arena[current].left { Some(i) => (self.arena[i]).height,
-                                                                   None => 0 };
-                let right_height = match self.arena[current].right { Some(i) => (self.arena[i]).height,
-                                                                     None => 0 };
-
-                // we update its height
-                let new_height = left_height+right_height+1;
-                self.arena[current].height = new_height;
-
-                // we now perform rotations as needed
-                if left_height > right_height && left_height-right_height > 1 {
-                    // Need to rotate right!
-                    self.arena[current].rotate_right();
-                    // Set current to be the "top" node after rotation
-                    current = self.arena[current].parent.unwrap();
-                } else if left_height < right_height && right_height-left_height > 1 {
-                    // Need to rotate left!
-                    self.arena[current].rotate_right();
-                    // Set current to be the "top" node after rotation
-                    current = self.arena[current].parent.unwrap();
+                    self.store[current].left = Some(new_index);
                 }
 
             }
         }
 
+        // Re-calculate height upwards as well as rotate as needed
+        let mut current = new_index;
+
+        // as long as our current node has a parent
+        // we process its parent
+        while let Some(p) = self.store[current].parent {
+            current = p;
+
+            // we get left and right heights
+            let left_height = match self.store[current].left { Some(i) => (self.store[i]).height,
+                                                                None => 0 };
+            let right_height = match self.store[current].right { Some(i) => (self.store[i]).height,
+                                                                    None => 0 };
+
+            // we update its height
+            let new_height = left_height+right_height+1;
+            self.store[current].height = new_height;
+
+            // we now perform rotations as needed
+            if left_height > right_height && left_height-right_height > 1 {
+                // Need to rotate right!
+                self.store[current].rotate_right();
+            } else if left_height < right_height && right_height-left_height > 1 {
+                // Need to rotate left!
+                self.store[current].rotate_right();
+            }
+
+        }
+
         // we can safely .clone() the added node here as it only countains
         // indexes and a pointer to things, which is not that bad
-        return Some(self.arena[current].clone());
+        return Some(self.store[current].clone());
     }
 }
 
@@ -203,7 +233,7 @@ pub struct AVLTreeNode<T:Clone+PartialOrd> {
     height: u32,
     pub value: T,
 
-    container: Rc<RefCell<AVLTree<T>>>
+    container: Rc<RefCell<AVLTreeArena<T>>>
 }
 
 impl<T:Clone+PartialOrd> AVLTreeNode<T> {
@@ -211,10 +241,10 @@ impl<T:Clone+PartialOrd> AVLTreeNode<T> {
     // Left rotation
     pub fn rotate_left(&mut self) {
         // create a borrow who has a nonmutable view of the
-        // arena inside. This is to appease the borrow checker
+        // store inside. This is to appease the borrow checker
         // and race-condition-de-possibleifier of Rust
-        let mut container_tree:RefMut<AVLTree<T>> = self.container.borrow_mut();
-        let arena = &mut container_tree.arena;
+        let mut container_tree:RefMut<AVLTreeArena<T>> = self.container.borrow_mut();
+        let store = &mut container_tree.store;
 
         match self.right {
             // If it does not exist, return.
@@ -224,15 +254,15 @@ impl<T:Clone+PartialOrd> AVLTreeNode<T> {
             // If it does, we rotate
             Some(parent_index) => {
                 // Get the parent node
-                let parent = &arena[parent_index];
+                let parent = &store[parent_index];
 
                 // Get the new heights of both left and right objects
                 let child_right_height = match parent.left {
-                    Some(pl) => (&arena[pl]).height,
+                    Some(pl) => (&store[pl]).height,
                     None => 0
                 };
                 let child_left_height = match self.left {
-                    Some(pl) => (&arena[pl]).height,
+                    Some(pl) => (&store[pl]).height,
                     None => 0
                 };
                 // Get the child's height and parent
@@ -250,7 +280,7 @@ impl<T:Clone+PartialOrd> AVLTreeNode<T> {
 
                 // Get the height of the right child of parent
                 let parent_right_height = match parent.right {
-                    Some(pl) => arena[pl].height,
+                    Some(pl) => store[pl].height,
                     None => 0
                 };
 
@@ -259,13 +289,13 @@ impl<T:Clone+PartialOrd> AVLTreeNode<T> {
                 // immutable
 
                 // set the left node of the parent to be self
-                arena[parent_index].left  = Some(self.index);
+                store[parent_index].left  = Some(self.index);
 
                 // set the parent's new height
-                arena[parent_index].height = max(child_height, parent_right_height);
+                store[parent_index].height = max(child_height, parent_right_height);
 
                 // set the parent's parent
-                arena[parent_index].parent = old_parent_index;
+                store[parent_index].parent = old_parent_index;
             }
         }
 
@@ -274,10 +304,10 @@ impl<T:Clone+PartialOrd> AVLTreeNode<T> {
     // Right rotation
     pub fn rotate_right(&mut self) {
         // create a borrow who has a nonmutable view of the
-        // arena inside. This is to appease the borrow checker
+        // store inside. This is to appease the borrow checker
         // and race-condition-de-possibleifier of Rust
-        let mut container_tree:RefMut<AVLTree<T>> = self.container.borrow_mut();
-        let arena = &mut container_tree.arena;
+        let mut container_tree:RefMut<AVLTreeArena<T>> = self.container.borrow_mut();
+        let store = &mut container_tree.store;
 
         match self.left {
             // If it does not exist, return.
@@ -287,15 +317,15 @@ impl<T:Clone+PartialOrd> AVLTreeNode<T> {
             // If it does, we rotate
             Some(parent_index) => {
                 // Get the parent node
-                let parent = &arena[parent_index];
+                let parent = &store[parent_index];
 
                 // Get the new heights of both left and right objects
                 let child_right_height = match parent.right {
-                    Some(pl) => (&arena[pl]).height,
+                    Some(pl) => (&store[pl]).height,
                     None => 0
                 };
                 let child_left_height = match self.right {
-                    Some(pl) => (&arena[pl]).height,
+                    Some(pl) => (&store[pl]).height,
                     None => 0
                 };
                 // Get the child's height and parent
@@ -313,7 +343,7 @@ impl<T:Clone+PartialOrd> AVLTreeNode<T> {
 
                 // Get the height of the right child of parent
                 let parent_left_height = match parent.left {
-                    Some(pl) => arena[pl].height,
+                    Some(pl) => store[pl].height,
                     None => 0
                 };
 
@@ -322,13 +352,13 @@ impl<T:Clone+PartialOrd> AVLTreeNode<T> {
                 // immutable
 
                 // set the left node of the parent to be self
-                arena[parent_index].right = Some(self.index);
+                store[parent_index].right = Some(self.index);
 
                 // set the parent's new height
-                arena[parent_index].height = max(child_height, parent_left_height);
+                store[parent_index].height = max(child_height, parent_left_height);
 
                 // set the parent's parent
-                arena[parent_index].parent = old_parent_index;
+                store[parent_index].parent = old_parent_index;
             }
         }
 
@@ -336,6 +366,7 @@ impl<T:Clone+PartialOrd> AVLTreeNode<T> {
 }
 
 fn main() {
-    let test = AVLTree::<u32>::new(1);
-    // dbg!(test.borrow_mut().);
+    let mut test = AVLTree::<u32>::new(1);
+    test.insert(12);
+    test.insert(1);
 }
