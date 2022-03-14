@@ -83,38 +83,31 @@ impl<'a, T:Clone+PartialOrd+std::fmt::Debug> AVLTreeArena<T> {
 
         // Create a stack and keep track of the current node
         let root = self.root();
-        let mut stack:Vec<usize> = vec![root];
 
         // Set the current node to the root node
-        let mut current;
+        let mut current = root;
 
-        // DFS!
-        while results.len() < n && stack.len() > 0 {
-            current = stack.pop().unwrap();
+        // Populate the list
+        while results.len() < n {
+            // Find the smallest value
+            while let Some(l) = self.store[current].left {
+                // Set the current value to l if not visited
+                // if not, break
+                if !visited[l] {
+                    current = l;
+                } else if let Some(r) = self.store[current].right {
+                    // If the right is not visited, add. If not
+                    // break the while loop
+                    if !visited[current] {
+                        current = r;
+                    } else { break; }
+                }
 
+            }
+
+            // Mark the smallest value as visited
             visited[current] = true;
-
-            // Push the left to be visited unto the stack if not visited
-            if let Some(l) = self.store[current].left {
-                if !visited[l] {
-                    stack.push(l);
-                } else {
-                    // if we have visited the left node and returned
-                    // we add it to the tracked list
-                    results.push(self.store[current].value.clone());
-                }
-            } else {
-                // If there is no left node, we have hit the bottom,
-                // and we will add as well
-                results.push(self.store[current].value.clone());
-            }
-
-            // Push the right to be visited unto the stack if not visited
-            if let Some(l) = self.store[current].right {
-                if !visited[l] {
-                    stack.push(l);
-                }
-            }
+            results.push(self.store[current].value.clone());
         }
 
         return Some(results);
@@ -169,7 +162,7 @@ impl<'a, T:Clone+PartialOrd+std::fmt::Debug> AVLTreeArena<T> {
                         right:None,
                         parent:Some(current),
                         index: new_index,
-                        height: 0,
+                        height: 1,
                         value: val.clone(),
                         container: self.store[current].container.clone()
                     });
@@ -187,7 +180,7 @@ impl<'a, T:Clone+PartialOrd+std::fmt::Debug> AVLTreeArena<T> {
                         right:None,
                         parent:Some(current),
                         index: new_index,
-                        height: 0,
+                        height: 1,
                         value: val.clone(),
                         container: self.store[current].container.clone()
                     });
@@ -214,8 +207,10 @@ impl<'a, T:Clone+PartialOrd+std::fmt::Debug> AVLTreeArena<T> {
 
             // we update its height
             let new_height = max(left_height, right_height)+1;
-            self.store[current].height = new_height;
 
+            // println!("Node {:?} has height {:?} but will have height {:?}", self.store[current].value, self.store[current].height, new_height);
+
+            self.store[current].height = new_height;
             // we now perform rotations as needed
             if left_height > right_height && left_height-right_height > 1 {
                 // Need to rotate right!
@@ -227,6 +222,7 @@ impl<'a, T:Clone+PartialOrd+std::fmt::Debug> AVLTreeArena<T> {
 
         }
 
+        // println!("Insertion of {:?} resulted in {:?}", self.store[new_index].value, self.store);
 
 
         // we can safely .clone() the added node here as it only countains
@@ -255,6 +251,8 @@ impl<T:Clone+PartialOrd+std::fmt::Debug> AVLTreeNode<T> {
 
     // Left rotation
     pub fn rotate_left(&mut self) {
+        println!("LEFT! On {:?}", self.value);
+
         // create a borrow who has a nonmutable view of the
         // store inside. This is to appease the borrow checker
         // and race-condition-de-possibleifier of Rust
@@ -318,6 +316,8 @@ impl<T:Clone+PartialOrd+std::fmt::Debug> AVLTreeNode<T> {
 
     // Right rotation
     pub fn rotate_right(&mut self) {
+        println!("RIGHT! On {:?}", self.value);
+
         // create a borrow who has a nonmutable view of the
         // store inside. This is to appease the borrow checker
         // and race-condition-de-possibleifier of Rust
@@ -382,7 +382,7 @@ impl<T:Clone+PartialOrd+std::fmt::Debug> AVLTreeNode<T> {
 
 fn main() {
     let mut tree = AVLTree::<u32>::new(1);
-    tree.insert(1);
+    tree.insert(2);
     tree.insert(4);
 
     dbg!(tree.take(tree.size()));
